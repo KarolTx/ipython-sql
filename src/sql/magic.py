@@ -31,6 +31,7 @@ class SqlMagic(Magics, Configurable):
     short_errors = Bool(True, config=True, help="Don't display the full traceback on SQL Programming Error")
     displaylimit = Int(0, config=True, help="Automatically limit the number of rows displayed (full result set is still stored)")
     autopandas = Bool(False, config=True, help="Return Pandas DataFrames instead of regular result sets")
+    autoqgrid = Bool(False, config=True, help="Displays results using QGrid instead the standard way, autopandas has to be set to True")
     column_local_vars = Bool(False, config=True, help="Return data into local variables from column names")
     feedback = Bool(True, config=True, help="Print number of rows affected by DML")
     dsn_filename = Unicode('odbc.ini', config=True, help="Path to DSN file. "
@@ -111,7 +112,7 @@ class SqlMagic(Magics, Configurable):
         try:
             result = sql.run.run(conn, query, self, user_ns)
 
-            if result and ~isinstance(result, str) and self.column_local_vars:
+            if len(result) and ~isinstance(result, str) and self.column_local_vars:
                 #Instead of returning values, set variables directly in the
                 #users namespace. Variable names given by column names
 
@@ -130,7 +131,11 @@ class SqlMagic(Magics, Configurable):
                 return None
             else:
                 #Return results into the default ipython _ variable
-                return result
+                if self.autopandas and self.autoqgrid:
+                    import qgrid
+                    return qgrid.QGridWidget(df=result)
+                else:
+                    return result
 
         except (ProgrammingError, OperationalError) as e:
             # Sqlite apparently return all errors as OperationalError :/
